@@ -16,8 +16,8 @@ for the frozen v1.0 architecture that all later phases implement against.
 
 | Phase | Name | Status |
 |---|---|---|
-| 0 | Architecture | 🟡 in progress |
-| 1 | Infrastructure skeleton | ⬜ not started |
+| 0 | Architecture | ✅ done ([review](docs/architecture/ARCHITECTURE_REVIEW.md), commit `b9ae090`) |
+| 1 | Infrastructure skeleton | 🟡 in progress |
 | 2 | Transportation foundation | ⬜ not started |
 | 3 | Real-time engine | ⬜ not started |
 | 4 | Prediction | ⬜ not started |
@@ -45,3 +45,35 @@ for entry/exit criteria on each phase.
 ## Repository layout
 
 See [`docs/architecture/10-repository-structure.md`](docs/architecture/10-repository-structure.md).
+Directories for phases not yet built contain only a placeholder `README.md`
+explaining what will live there and when.
+
+## Getting started (Phase 1 foundation)
+
+Requires Docker Desktop, or Python 3.11 + [uv](https://docs.astral.sh/uv/)
+and Node.js 22 for running services outside containers.
+
+```bash
+cp .env.example .env
+docker compose up --build
+docker compose exec api alembic upgrade head   # first run only
+```
+
+- API: http://localhost:8000 (`/healthz`, `/readyz`, `/api/v1/status`, `/docs`)
+- Web: http://localhost:3000
+
+Running the backend without Docker:
+
+```bash
+uv sync --extra dev
+uv run uvicorn app.main:app --reload --app-dir services/api
+uv run pytest
+```
+
+Running the frontend without Docker:
+
+```bash
+cd apps/web
+npm install
+npm run dev
+```

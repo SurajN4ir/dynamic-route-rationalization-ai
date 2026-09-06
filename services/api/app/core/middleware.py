@@ -1,0 +1,31 @@
+"""Request correlation middleware.
+
+Assigns (or propagates) a request id for every inbound request, exposes it
+on the response, and makes it available to the logging formatters via the
+contextvar in app.core.logging - see
+docs/architecture/02-non-functional-requirements.md 2.8.
+"""
+
+from __future__ import annotations
+
+import uuid
+
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.requests import Request
+from starlette.responses import Response
+
+from app.core.logging import request_id_ctx_var
+
+REQUEST_ID_HEADER = "X-Request-ID"
+
+
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        request_id = request.headers.get(REQUEST_ID_HEADER) or str(uuid.uuid4())
+        token = request_id_ctx_var.set(request_id)
+        try:
+            response = await call_next(request)
+        finally:
+            request_id_ctx_var.reset(token)
+        response.headers[REQUEST_ID_HEADER] = request_id
+        return response

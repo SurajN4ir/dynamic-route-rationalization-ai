@@ -1,0 +1,53 @@
+[project]
+name = "aura"
+version = "0.1.0"
+description = "AURA - Adaptive Urban Route & Fleet Intelligence"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115,<0.116",
+    "uvicorn[standard]>=0.32,<0.33",
+    "pydantic>=2.9,<3",
+    "pydantic-settings>=2.6,<3",
+    "sqlalchemy[asyncio]>=2.0.36,<2.1",
+    "asyncpg>=0.30,<0.31",
+    "alembic>=1.14,<1.15",
+    "redis>=5.2,<6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<9",
+    "pytest-asyncio>=0.24,<0.25",
+    "pytest-cov>=6.0,<7",
+    "httpx>=0.27,<0.28",
+    "ruff>=0.7,<0.8",
+    "mypy>=1.13,<1.14",
+]
+
+# This project is a dependency manifest for the services/ml/rl trees, not a
+# distributable package (see docs/architecture/10-repository-structure.md) -
+# don't try to build/install "aura" itself as a package.
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["services/api"]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "apps/web", "docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+mypy_path = "services/api"
+exclude = ["\\.venv", "apps/web"]

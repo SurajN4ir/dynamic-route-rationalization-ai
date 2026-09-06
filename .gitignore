@@ -9,21 +9,31 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 # node
 node_modules/
 .next/
 out/
 
-# data & ml artifacts (tracked via DVC instead)
-data/raw/
-data/processed/
-data/features/
+# data & ml artifacts (tracked via DVC instead) - ignore contents, not the
+# placeholder README.md that documents each directory's purpose
+data/raw/*
+!data/raw/README.md
+data/processed/*
+!data/processed/README.md
+data/features/*
+!data/features/README.md
 *.dvc
 !*.dvc.yaml
 mlruns/
 mlflow.db
 rl/policies/*.zip
+!rl/policies/README.md
 
 # simulation generated files
 simulation/networks/**/*.net.xml

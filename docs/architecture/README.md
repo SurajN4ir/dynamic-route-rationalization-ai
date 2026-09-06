@@ -23,10 +23,14 @@ changes the code, and bump the version note at the bottom of the affected file.
 14. [Evaluation methodology](14-evaluation-methodology.md)
 15. [Deployment architecture](15-deployment-architecture.md)
 
-**Gate review:** [ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md) — Phase 0
-review verdict (APPROVED WITH CHANGES), all findings, and every fix already
-applied to docs 04/06/07/08/09/12/13/15 as a result. Read this after the
-numbered docs to see what changed and why.
+**Gate reviews:**
+- [ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md) — Phase 0 review verdict
+  (APPROVED WITH CHANGES), all findings, and every fix already applied to
+  docs 04/06/07/08/09/12/13/15 as a result.
+- [PHASE1_REVIEW.md](PHASE1_REVIEW.md) — Phase 1 implementation review
+  (APPROVED WITH FIXES APPLIED): a real cross-event-loop connection pool
+  bug in the test suite and a Docker build-arg misconfiguration for the
+  frontend, both fixed and re-verified.
 
 ## Change control
 

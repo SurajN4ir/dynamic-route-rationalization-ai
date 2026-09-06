@@ -22,9 +22,11 @@ from collections.abc import AsyncIterator
 
 import pytest
 import pytest_asyncio
+import redis.asyncio as redis_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.cache.redis import redis_manager
 from app.db.session import get_db, get_engine
 from app.main import app
 
@@ -67,6 +69,20 @@ async def db_session(
         yield session
     finally:
         await session.close()
+
+
+@pytest_asyncio.fixture
+async def redis_client() -> AsyncIterator[redis_asyncio.Redis]:
+    """A real Redis client for telemetry state-cache tests (TASK-204) -
+    same skip-if-unreachable convention as test_redis_connectivity.py.
+    No explicit key cleanup: every test uses a fresh `uuid.uuid4()`
+    vehicle_id, so cache keys never collide across tests or runs, and the
+    state cache's own TTL (`telemetry_state_cache_ttl_s`) expires them
+    naturally - unlike `db_session`, Redis has no transaction to roll
+    back."""
+    if not await redis_manager.ping():
+        pytest.skip("redis not reachable in this environment")
+    yield redis_manager.client
 
 
 @pytest_asyncio.fixture

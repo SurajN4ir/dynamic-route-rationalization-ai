@@ -10,6 +10,7 @@ from app.models.calendar import ServiceCalendar
 from app.models.road_network import Intersection, Road, RoadSegment
 from app.models.route import Route, RouteStop
 from app.models.stop import Stop
+from app.models.telemetry import Telemetry
 from app.models.vehicle import Vehicle, VehicleAssignment
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "RouteStop",
     "ServiceCalendar",
     "Stop",
+    "Telemetry",
     "Vehicle",
     "VehicleAssignment",
 ]

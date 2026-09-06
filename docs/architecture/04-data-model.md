@@ -12,8 +12,9 @@ erDiagram
     ROUTES ||--o{ ROUTE_STOPS : has
     STOPS ||--o{ ROUTE_STOPS : has
     VEHICLES ||--o{ TRIPS : assigned_to
-    TRIPS ||--o{ TELEMETRY : produces
+    VEHICLES ||--o{ TELEMETRY : produces
     TRIPS ||--o{ PREDICTIONS : has
+    ROAD_SEGMENTS ||--o{ TELEMETRY : "nearest-associates (nullable)"
     ROUTES ||--o{ TRAFFIC_OBSERVATIONS : has
     STOPS ||--o{ DEMAND_OBSERVATIONS : has
     INCIDENTS ||--o{ RECOMMENDATIONS : triggers
@@ -35,7 +36,9 @@ Phase 2 (TASK-201) added `intersections`/`roads`/`road_segments` (the
 physical road network — PostGIS is the system of record, not an in-memory
 graph — see [PHASE2_DESIGN.md](PHASE2_DESIGN.md)) and
 `service_calendars`/`vehicle_assignments` (static fleet planning,
-independent of `trips`).
+independent of `trips`). TASK-204 added `telemetry`, produced by
+`vehicles` directly (not `trips` — see [TASK204_DESIGN.md](TASK204_DESIGN.md)
+§2), with a nullable nearest-segment association back to `road_segments`.
 
 ## 4.2 Tables
 
@@ -189,29 +192,45 @@ route, which is not a valid route. Index `stop_id` separately for
 | actual_start | timestamptz nullable | |
 | status | text | `scheduled`, `active`, `completed`, `cancelled` |
 
-### `telemetry`
+### `telemetry` *(TASK-204 — see [TASK204_DESIGN.md](TASK204_DESIGN.md) §2/§14)*
 | Column | Type | Notes |
 |---|---|---|
 | id | bigserial PK | |
-| vehicle_id | uuid FK → vehicles | |
-| trip_id | uuid FK → trips nullable | |
-| ts | timestamptz | |
+| vehicle_id | uuid FK → vehicles, `ON DELETE CASCADE` | per §4.4 below, append-only history must never block a parent delete |
+| ts | timestamptz | client-supplied event timestamp |
+| received_at | timestamptz | server receipt time, for skew validation/latency observability |
 | location | geometry(Point,4326) | |
-| speed_mps | real | |
-| heading_deg | real | |
-| occupancy | int nullable | |
-| matched_edge_id | text nullable | OSM edge id after map-matching |
-| source | text | `phone`, `sumo` |
+| speed_mps | double precision | |
+| heading_deg | double precision nullable | |
+| accuracy_m | double precision nullable | |
+| source | text | `phone` \| `sumo` \| `synthetic` (CHECK constraint) |
+| road_segment_id | uuid FK → road_segments nullable, `ON DELETE SET NULL` | nearest-segment association (TASK-204 §7) — **not** map matching |
+| segment_distance_m | double precision nullable | distance from the GPS point to the matched segment |
+| segment_progress | double precision nullable | 0–1 fraction along the segment (`ST_LineLocatePoint`) |
+| created_at | timestamptz | |
 
-Indexed on `(vehicle_id, ts)`; hypertable-style partitioning by day is a
-reasonable future optimization, not required for v1 scale (doc 02.2).
+**TASK-204 correction:** this table's original v1.0 shape (above, prior
+to this note) had `trip_id uuid FK → trips` and `matched_edge_id text`
+("OSM edge id"). Neither survived architecture reconciliation: `trips`
+was never created (TASK-201 built `vehicle_assignments` instead, kept
+independent of raw telemetry — see PHASE2_DESIGN.md §2.3), and
+TASK-203's canonical graph keys every edge by `road_segments.id` (uuid),
+never a raw OSM edge id. `occupancy` was also dropped — no consumer
+exists yet (a future demand-prediction task's concern, not this one's).
+The table above reflects what actually shipped in migration `0004`.
+
+Indexed on `(vehicle_id, ts)` and `road_segment_id`, plus a GIST index on
+`location`; hypertable-style partitioning by day is a reasonable future
+optimization, not required for v1 scale (doc 02.2).
 
 **Idempotency:** unique constraint on `(vehicle_id, ts, source)`. A retried
 POST from a flaky phone/SUMO connection carries the same `(vehicle_id,
 timestamp, source)` and is written with `ON CONFLICT (vehicle_id, ts,
 source) DO NOTHING` — safe to retry without creating duplicate rows that
 would double-count in speed/headway aggregation. This is the mechanism
-behind FR-INGEST-06's dedup requirement (see doc 06 §6.1a).
+behind FR-INGEST-06's dedup requirement (see doc 06 §6.1a) — this
+composite key *is* the event's identity; TASK-204 deliberately did not
+add a separate synthetic event-id column on top of it.
 
 ### `traffic_observations`
 | Column | Type | Notes |
@@ -332,7 +351,7 @@ Not exhaustive, but every one of these is load-bearing for a specific FR/NFR
 | `routes` | GIST on `geometry` | proximity/overlap queries (FR-ROUTE-01) |
 | `stops` | GIST on `location` | nearest-stop lookups, map-matching support |
 | `incidents` | GIST on `location`; btree on `(starts_at, ends_at)` | "active incidents" queries (FR-INGEST-05), incident-impact detection (FR-EVENT-02) |
-| `telemetry` | GIST on `location`; btree on `(vehicle_id, ts)` (existing); unique on `(vehicle_id, ts, source)` | map-matching (FR-FUSE-02), idempotency (above) |
+| `telemetry` | GIST on `location`; btree on `(vehicle_id, ts)`, `road_segment_id`; unique on `(vehicle_id, ts, source)` | nearest-segment association (TASK-204 §7), idempotency (above) |
 | `traffic_observations` | btree on `(edge_id, ts)` | traffic model feature lookup (doc 07 §7.1) |
 | `demand_observations` | btree on `(stop_id, ts)` | demand model feature lookup (doc 07 §7.4) |
 | `predictions` | btree on `(target_type, target_ref_id, generated_at DESC)` | "latest prediction for X" (see above) |
@@ -352,7 +371,9 @@ Not exhaustive, but every one of these is load-bearing for a specific FR/NFR
   parent delete in practice (vehicles/trips are not expected to be hard-deleted).
 
 ---
-*v1.2 — Phase 0 baseline, Phase 2 (TASK-201) additions, and TASK-202's
-`road_segments`/`roads` schema correction + feature columns applied in
-place. See [PHASE2_DESIGN.md](PHASE2_DESIGN.md) and
-[TASK202_DESIGN.md](TASK202_DESIGN.md) for the reasoning.*
+*v1.3 — Phase 0 baseline, Phase 2 (TASK-201) additions, TASK-202's
+`road_segments`/`roads` schema correction + feature columns, and
+TASK-204's `telemetry` shape correction (dropped `trip_id`/`occupancy`,
+replaced `matched_edge_id` with `road_segment_id`) applied in place. See
+[PHASE2_DESIGN.md](PHASE2_DESIGN.md), [TASK202_DESIGN.md](TASK202_DESIGN.md),
+and [TASK204_DESIGN.md](TASK204_DESIGN.md) for the reasoning.*

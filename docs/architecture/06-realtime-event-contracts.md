@@ -7,23 +7,43 @@ contract" in the architecture overview).
 
 ## 6.1 Canonical telemetry contract
 
+**TASK-204 implemented shape** (see
+[TASK204_DESIGN.md](TASK204_DESIGN.md) §1/§2 — the fields below are what
+`POST /api/v1/telemetry` actually accepts today):
+
 ```json
 {
   "vehicle_id": "uuid",
-  "route_id": "uuid | null",
-  "trip_id": "uuid | null",
   "timestamp": "2026-09-06T10:15:30Z",
   "latitude": 12.9716,
   "longitude": 77.5946,
   "speed_mps": 8.3,
   "heading_deg": 142.0,
-  "occupancy": 27,
-  "source": "phone | sumo"
+  "accuracy_m": 5.0,
+  "source": "phone | sumo | synthetic"
 }
 ```
 
-Validation rules (enforced at `services/ingestion`, FR-INGEST-06):
-- `latitude`/`longitude` within the configured service-area bounding box.
+`route_id`/`trip_id`/`occupancy` from this contract's original v1.0 draft
+were **dropped**, not deferred: `trips` was never built (TASK-201 built
+`vehicle_assignments` instead, kept independent of raw position
+telemetry), and embedding an assignment reference on every raw GPS ping
+would conflate "where is the vehicle" with "what is it assigned to" —
+assignment is resolved separately, on read, from `VehicleAssignment`
+(TASK204_DESIGN.md §13). `occupancy` has no consumer yet (a future
+demand-prediction concern). `accuracy_m` (optional) was added — it has an
+immediate consumer (segment-association confidence) that didn't exist
+when this contract was first drafted. `source` gained a `synthetic` value
+for the test/dev producer TASK-204's brief explicitly asked for.
+
+Validation rules (enforced by `app/telemetry/validation.py` +
+`TelemetryIngestRequest`'s Pydantic field constraints — TASK-204 built
+this inside `services/api`, not a separate `services/ingestion` process;
+see TASK204_DESIGN.md §2 placement note):
+- `latitude`/`longitude` in valid range (`[-90,90]`/`[-180,180]`). A
+  configured service-area bounding box is **not yet enforced** — no
+  specific demo service area has been chosen anywhere in this project yet
+  (TASK204_DESIGN.md §17).
 - `speed_mps` in `[0, 40]` (~144 km/h ceiling; anything above is rejected as sensor error, not clamped).
 - `timestamp` within `[-30s, +5s]` of server receipt time (clock skew tolerance).
 - `vehicle_id` must reference a known `vehicles` row.
@@ -58,6 +78,17 @@ arrive after a newer one). Two different concerns, handled differently:
   previously left the dropout threshold undefined).
 
 ## 6.2 Redis Streams topics
+
+**Not yet implemented.** TASK-204 deliberately does not stand up Redis
+Streams or consumer groups — `app/cache/redis.py` explicitly reserves
+itself as their future home but says not to build them yet, and no
+fusion-worker/prediction/WS-fan-out service exists to consume them.
+TASK-204 instead uses a single Redis cache key per vehicle
+(`aura:vehicle_state:{vehicle_id}`) behind one internal publication
+function (`app/telemetry/publisher.py:publish_state_update`) — the seam
+a future task attaches the topics below to, without changing the
+ingestion pipeline itself (TASK204_DESIGN.md §10/§12/§18). The table
+below remains the target design for when that future task lands.
 
 | Stream key | Producer | Consumer(s) | Payload |
 |---|---|---|---|
@@ -123,4 +154,6 @@ debugging without re-ingesting telemetry.
   mirrors the API versioning policy in doc 05.
 
 ---
-*v1.0 — Phase 0.*
+*v1.1 — Phase 0 baseline, §6.1 corrected to TASK-204's actual implemented
+contract and §6.2 annotated as not yet implemented. See
+[TASK204_DESIGN.md](TASK204_DESIGN.md) for the reasoning.*

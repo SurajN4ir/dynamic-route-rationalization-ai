@@ -64,9 +64,20 @@ specific FR/NFR ids they satisfy.
 ## Phase 3 — Real-time engine
 
 - **Entry:** Phase 2 exit.
-- **Build:** telemetry API (FR-INGEST-01/02/06), phone telemetry client,
-  SUMO telemetry bridge (doc 09 §9.6), Redis Streams pipeline, fused state
-  cache, WebSocket fan-out, live map in `apps/web`.
+- **Build, staged as tasks** (split during implementation, following Phase
+  2's precedent — see [TASK204_DESIGN.md](TASK204_DESIGN.md)):
+  - **TASK-204 (done):** the telemetry ingestion + current-state
+    foundation (FR-INGEST-01/06) — `POST /api/v1/telemetry` (validation,
+    idempotency via `(vehicle_id, ts, source)`, out-of-order/stale-state
+    handling), the durable `telemetry` history table, a Redis-backed
+    current-state cache with Postgres fallback (`GET /api/v1/fleet`,
+    `GET /api/v1/fleet/{id}` — doc 05 §5.3's existing spec, not a new
+    path), nearest-road-segment association (not full map matching), and
+    the observed (not predicted) per-segment network-state aggregation.
+    Deliberately **not** built here: the phone telemetry client, the SUMO
+    telemetry bridge, Redis Streams, WebSocket fan-out, and the live map
+    in `apps/web` — all still open Phase 3 work, now with a real
+    ingestion boundary to attach to instead of a placeholder.
 - **Exit:** at least 1 phone + a SUMO-simulated fleet both show up moving on
   the live map within the NFR-02.1 latency targets.
 

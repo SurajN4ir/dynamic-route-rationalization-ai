@@ -8,7 +8,7 @@ section, not a restructure.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import roads, routes, status, stops, vehicles
+from app.api.v1.endpoints import fleet, roads, routes, status, stops, telemetry, vehicles
 
 api_router = APIRouter()
 api_router.include_router(status.router)
@@ -17,3 +17,5 @@ api_router.include_router(roads.segments_router)
 api_router.include_router(stops.router)
 api_router.include_router(routes.router)
 api_router.include_router(vehicles.router)
+api_router.include_router(telemetry.router)
+api_router.include_router(fleet.router)

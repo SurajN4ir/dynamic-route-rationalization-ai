@@ -40,6 +40,16 @@ class Settings(BaseSettings):
 
     cors_allow_origins: list[str] = ["http://localhost:3000"]
 
+    # Telemetry ingestion (TASK-204) - see docs/architecture/TASK204_DESIGN.md
+    # §5/§6 for why each default was chosen.
+    telemetry_max_speed_mps: float = 40.0
+    telemetry_max_clock_skew_past_s: int = 30
+    telemetry_max_clock_skew_future_s: int = 5
+    telemetry_stale_threshold_s: int = 15
+    telemetry_offline_threshold_s: int = 300
+    telemetry_segment_search_radius_m: float = 50.0
+    telemetry_state_cache_ttl_s: int = 1800
+
 
 @lru_cache
 def get_settings() -> Settings:

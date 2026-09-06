@@ -49,6 +49,13 @@ changes the code, and bump the version note at the bottom of the affected file.
   the reference-only geometry strategy, why NetworkX was chosen over
   OSMnx, and a doc 12 correction (TASK-203 is graph construction only —
   routing algorithms were split out to a future task, not built here).
+- [TASK204_DESIGN.md](TASK204_DESIGN.md) — TASK-204 (real-time vehicle
+  telemetry & network state) design record: the telemetry event model,
+  idempotency/ordering/stale-state policies, nearest-segment association
+  (explicitly not map matching), the Redis-cache/Postgres-durable current
+  state split, and doc 04/06 corrections (the `telemetry` table's actual
+  shape vs. its Phase-0 draft, and why `route_id`/`trip_id`/`occupancy`
+  were dropped from the wire contract).
 
 ## Change control
 

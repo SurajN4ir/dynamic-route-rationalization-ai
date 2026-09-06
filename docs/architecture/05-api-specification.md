@@ -17,14 +17,31 @@ under `/api/v1`. JWT bearer auth on every endpoint except `/auth/login` and
 
 ## 5.2 Ingestion
 
+**TASK-204 implements `POST /telemetry`** — see
+[TASK204_DESIGN.md](TASK204_DESIGN.md) §11. Unauthenticated (§15 of that
+doc — no auth infrastructure exists anywhere in this codebase yet; a
+deliberate, documented deviation from this doc's own §5.1 blanket JWT
+rule, not an oversight). `VehicleTelemetry`'s actual implemented shape
+(doc 06 §6.1) drops `route_id`/`trip_id`/`occupancy` from the schema
+below — see TASK204_DESIGN.md §2. `/telemetry/batch` and `/incidents` are
+**not yet implemented** (still open Phase 3 work).
+
 | Method | Path | Body | Response | Notes |
 |---|---|---|---|---|
-| POST | `/telemetry` | `VehicleTelemetry` (doc 06) | `202 {status:"accepted"}` | Used by phone client + SUMO bridge |
-| POST | `/telemetry/batch` | `VehicleTelemetry[]` | `202 {accepted, rejected[]}` | Rejected items include validation reason |
-| POST | `/incidents` | `{type, lat, lon, severity, starts_at, ends_at?}` | `201 {incident_id}` | requires `controller`/`admin` role |
-| GET | `/incidents?active=true` | — | `Incident[]` | |
+| POST | `/telemetry` | `VehicleTelemetry` (doc 06) | `202 {status:"accepted"\|"duplicate", ...}` | Used by phone client + SUMO bridge; `duplicate` is a successful idempotent no-op, not an error |
+| POST | `/telemetry/batch` | `VehicleTelemetry[]` | `202 {accepted, rejected[]}` | Not yet implemented (TASK-204) |
+| POST | `/incidents` | `{type, lat, lon, severity, starts_at, ends_at?}` | `201 {incident_id}` | requires `controller`/`admin` role; not yet implemented |
+| GET | `/incidents?active=true` | — | `Incident[]` | Not yet implemented |
 
 ## 5.3 Fleet / network state
+
+**TASK-204 implements `/fleet` and `/fleet/{vehicle_id}`** exactly as
+specified below — see TASK204_DESIGN.md §8/§11. `routes`/`trips` rows are
+unrelated to TASK-204 and remain not yet implemented for their real-time
+aspects (`/routes`/`/routes/{route_id}`/`/routes/{route_id}/stops` exist
+as TASK-201's *static* reference data, §5.3a below — `/trips/{trip_id}`
+is not implemented, since `trips` itself was never built; see
+TASK204_DESIGN.md §2).
 
 | Method | Path | Response | Notes |
 |---|---|---|---|
@@ -33,7 +50,7 @@ under `/api/v1`. JWT bearer auth on every endpoint except `/auth/login` and
 | GET | `/routes` | `Route[]` | |
 | GET | `/routes/{route_id}` | `Route` | |
 | GET | `/routes/{route_id}/stops` | `Stop[]` | ordered |
-| GET | `/trips/{trip_id}` | `Trip` incl. current ETA per remaining stop | |
+| GET | `/trips/{trip_id}` | `Trip` incl. current ETA per remaining stop | Not yet implemented — no `trips` table exists |
 
 ## 5.3a Transportation network (static reference data)
 
@@ -125,6 +142,8 @@ in `services/api`).
   is returned, so clients/evaluation scripts can pin to a specific model run.
 
 ---
-*v1.1 — Phase 0 baseline, §5.3a (Phase 2 / TASK-201 transportation network
-endpoints) and the `/routes/{route_id}` row added in place. See
-[PHASE2_DESIGN.md](PHASE2_DESIGN.md) for the reasoning.*
+*v1.2 — Phase 0 baseline, §5.3a (Phase 2 / TASK-201 transportation network
+endpoints) and the `/routes/{route_id}` row added in place, and §5.2/§5.3
+annotated with TASK-204's actual telemetry/fleet implementation. See
+[PHASE2_DESIGN.md](PHASE2_DESIGN.md) and
+[TASK204_DESIGN.md](TASK204_DESIGN.md) for the reasoning.*

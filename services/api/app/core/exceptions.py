@@ -51,6 +51,18 @@ class ServiceUnavailableError(AppError):
     message = "A required dependency is currently unavailable."
 
 
+class UnprocessableEntityError(AppError):
+    """A request body that is well-formed JSON but semantically invalid -
+    e.g. telemetry referencing an unknown vehicle, or failing a
+    domain-specific range check Pydantic's own field constraints can't
+    express. Distinct from RequestValidationError (malformed/missing
+    fields, handled by FastAPI itself)."""
+
+    code = "unprocessable_entity"
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    message = "The request could not be processed."
+
+
 def _error_response(
     status_code: int, code: str, message: str, details: dict[str, Any] | None = None
 ) -> JSONResponse:

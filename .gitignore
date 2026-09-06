@@ -1,0 +1,36 @@
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# node
+node_modules/
+.next/
+out/
+
+# data & ml artifacts (tracked via DVC instead)
+data/raw/
+data/processed/
+data/features/
+*.dvc
+!*.dvc.yaml
+mlruns/
+mlflow.db
+rl/policies/*.zip
+
+# simulation generated files
+simulation/networks/**/*.net.xml
+!simulation/networks/**/*.example.net.xml
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -30,7 +30,13 @@ from app.main import app
 
 
 @pytest_asyncio.fixture
-async def db_session() -> AsyncIterator[AsyncSession]:
+async def db_session_factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
+    """The same rolled-back-transaction isolation as `db_session`, but
+    exposed as a factory rather than one session - lets a test stand in
+    for code (like the ingestion CLI) that creates its own session via
+    `get_session_factory()` and calls commit()/rollback() on it, while
+    still confining everything to one outer transaction that never
+    survives the test."""
     engine = get_engine()
     # Establishing the connection is itself the reachability check - don't
     # run a query on it first, or SQLAlchemy's autobegin conflicts with the
@@ -45,13 +51,22 @@ async def db_session() -> AsyncIterator[AsyncSession]:
     session_factory = async_sessionmaker(
         bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
     )
-    session = session_factory()
+    try:
+        yield session_factory
+    finally:
+        await trans.rollback()
+        await conn.close()
+
+
+@pytest_asyncio.fixture
+async def db_session(
+    db_session_factory: async_sessionmaker[AsyncSession],
+) -> AsyncIterator[AsyncSession]:
+    session = db_session_factory()
     try:
         yield session
     finally:
         await session.close()
-        await trans.rollback()
-        await conn.close()
 
 
 @pytest_asyncio.fixture

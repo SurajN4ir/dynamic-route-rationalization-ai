@@ -14,7 +14,7 @@ async def test_database_is_at_expected_alembic_head(db_session: AsyncSession) ->
     result = await db_session.execute(text("SELECT version_num FROM alembic_version"))
     version = result.scalar_one()
 
-    assert version == "0002", (
-        f"expected the transportation-foundation migration (0002) to be applied, "
+    assert version == "0003", (
+        f"expected the OSM ingestion schema fix migration (0003) to be applied, "
         f"got {version!r} - run `alembic upgrade head` from services/api"
     )

@@ -6,7 +6,7 @@ unchanged from doc 04.
 
 from __future__ import annotations
 
-from geoalchemy2 import Geometry
+from geoalchemy2 import Geometry, WKBElement
 from sqlalchemy import CheckConstraint, Integer, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,7 +29,7 @@ class Stop(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     code: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     name: Mapped[str | None] = mapped_column(Text, nullable=True)
-    location: Mapped[str] = mapped_column(
+    location: Mapped[WKBElement] = mapped_column(
         Geometry(geometry_type="POINT", srid=4326, spatial_index=False), nullable=False
     )
     capacity_hint: Mapped[int | None] = mapped_column(Integer, nullable=True)

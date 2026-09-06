@@ -20,7 +20,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from geoalchemy2 import Geometry
+from geoalchemy2 import Geometry, WKBElement
 from sqlalchemy import CheckConstraint, ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -43,7 +43,7 @@ class Route(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     code: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     name: Mapped[str | None] = mapped_column(Text, nullable=True)
-    geometry: Mapped[str | None] = mapped_column(
+    geometry: Mapped[WKBElement | None] = mapped_column(
         Geometry(geometry_type="LINESTRING", srid=4326, spatial_index=False), nullable=True
     )
     direction: Mapped[str | None] = mapped_column(Text, nullable=True)

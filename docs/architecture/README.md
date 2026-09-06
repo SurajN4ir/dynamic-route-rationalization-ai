@@ -36,6 +36,13 @@ changes the code, and bump the version note at the bottom of the affected file.
   Intersection as a persisted PostGIS system of record, VehicleAssignment
   vs. `trips`, SRID/idempotency conventions) and every additive change
   applied to doc 04/12 as a result.
+- [TASK202_DESIGN.md](TASK202_DESIGN.md) — TASK-202 (OSM road-network
+  ingestion) design record: the OSM→AURA mapping, supported tag policy,
+  directionality/topology rules, idempotency/transaction/dry-run strategy,
+  and a schema-correction migration (`0003`) fixing a gap PHASE2_DESIGN.md
+  had specified but TASK-201's committed migration hadn't actually
+  implemented (way-splitting needs a composite, not single-column, unique
+  key on `road_segments`).
 
 ## Change control
 

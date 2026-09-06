@@ -19,13 +19,14 @@ from __future__ import annotations
 
 import uuid
 
-from geoalchemy2 import Geometry
+from geoalchemy2 import Geometry, WKBElement
 from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
     Float,
     ForeignKey,
+    Integer,
     Text,
     UniqueConstraint,
 )
@@ -49,7 +50,7 @@ class Intersection(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UniqueConstraint("osm_node_id", name="uq_intersections_osm_node_id"),
     )
 
-    location: Mapped[str] = mapped_column(
+    location: Mapped[WKBElement] = mapped_column(
         Geometry(geometry_type="POINT", srid=4326, spatial_index=False), nullable=False
     )
     source: Mapped[str] = mapped_column(Text, nullable=False, server_default="manual")
@@ -76,7 +77,13 @@ class Road(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     - a segment need not belong to a Road (see RoadSegment.road_id)."""
 
     __tablename__ = "roads"
-    __table_args__ = (CheckConstraint(f"source IN {_SOURCE_VALUES}", name="ck_roads_source"),)
+    __table_args__ = (
+        CheckConstraint(f"source IN {_SOURCE_VALUES}", name="ck_roads_source"),
+        # (source, name) is the idempotency key TASK-202's ingestion groups
+        # same-named OSM ways under - NULL-permissive (unnamed roads never
+        # collide), added in migration 0003.
+        UniqueConstraint("source", "name", name="uq_roads_source_name"),
+    )
 
     name: Mapped[str | None] = mapped_column(Text, nullable=True)
     road_class: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -87,12 +94,22 @@ class Road(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 class RoadSegment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """The routable unit of the road network: one edge between two
-    Intersections, with its own line geometry."""
+    Intersections, with its own line geometry.
+
+    A single OSM way may produce *multiple* RoadSegment rows when it
+    passes through a node shared with another way (a real topological
+    junction in the middle of the way's node list) - see
+    docs/architecture/TASK202_DESIGN.md §5. `way_seq` is that split's
+    0-based index within its parent way, and `(osm_way_id, way_seq)`
+    together, not `osm_way_id` alone, is the stable OSM-derived identity
+    (migration 0003 corrected this from TASK-201's original single-column
+    constraint, which didn't account for splitting).
+    """
 
     __tablename__ = "road_segments"
     __table_args__ = (
         CheckConstraint(f"source IN {_SOURCE_VALUES}", name="ck_road_segments_source"),
-        UniqueConstraint("osm_way_id", name="uq_road_segments_osm_way_id"),
+        UniqueConstraint("osm_way_id", "way_seq", name="uq_road_segments_osm_way_id_way_seq"),
     )
 
     road_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -104,7 +121,7 @@ class RoadSegment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     end_intersection_id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("intersections.id", ondelete="RESTRICT"), nullable=False
     )
-    geometry: Mapped[str] = mapped_column(
+    geometry: Mapped[WKBElement] = mapped_column(
         Geometry(geometry_type="LINESTRING", srid=4326, spatial_index=False), nullable=False
     )
     # Cached length in meters. Computable via ST_Length(geography(geometry))
@@ -115,6 +132,10 @@ class RoadSegment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     road_class: Mapped[str | None] = mapped_column(Text, nullable=True)
     source: Mapped[str] = mapped_column(Text, nullable=False, server_default="manual")
     osm_way_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    way_seq: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    access: Mapped[str | None] = mapped_column(Text, nullable=True)
+    maxspeed_kph: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    lanes: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     road: Mapped[Road | None] = relationship("Road", back_populates="segments")
     start_intersection: Mapped[Intersection] = relationship(

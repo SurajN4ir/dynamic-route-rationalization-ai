@@ -68,7 +68,7 @@ shipped, with the original v1.0 intent preserved.
 | osm_node_id | bigint, unique when present | idempotency key for OSM ingestion |
 | created_at, updated_at | timestamptz | |
 
-### `roads` *(Phase 2)*
+### `roads` *(Phase 2; unique constraint added in TASK-202 migration 0003)*
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid PK | |
@@ -77,20 +77,33 @@ shipped, with the original v1.0 intent preserved.
 | source | text | `osm` \| `manual` |
 | created_at, updated_at | timestamptz | |
 
-### `road_segments` *(Phase 2)*
+Unique on `(source, name)` *(TASK-202)* — the idempotency key OSM
+ingestion upserts against when grouping same-named ways under one Road;
+see [TASK202_DESIGN.md](TASK202_DESIGN.md) §5/§8.
+
+### `road_segments` *(Phase 2; corrected + extended in TASK-202 migration 0003)*
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid PK | |
 | road_id | uuid FK → roads, nullable | a segment need not belong to a named Road |
-| start_intersection_id | uuid FK → intersections | |
+| start_intersection_id | uuid FK → intersections | direction-normalized — always the allowed travel direction when `is_oneway` (TASK202_DESIGN.md §7) |
 | end_intersection_id | uuid FK → intersections | |
 | geometry | geometry(LineString,4326) | the routable unit — one edge between two intersections |
 | length_m | double precision nullable | cached; computable via `ST_Length(geography(geometry))` |
 | is_oneway | boolean | |
 | road_class | text nullable | |
 | source | text | `osm` \| `manual` |
-| osm_way_id | bigint, unique when present | idempotency key for OSM ingestion |
+| osm_way_id | bigint nullable | source OSM way id; **not unique alone** — see `way_seq` below |
+| way_seq | int nullable *(TASK-202)* | 0-based split index within the parent OSM way — a way passing through a shared/junction node produces multiple segment rows, one per split; null for manually-created segments |
+| access | text nullable *(TASK-202)* | raw OSM `access` tag value; captured, not yet acted on |
+| maxspeed_kph | int nullable *(TASK-202)* | parsed from OSM `maxspeed` (mph converted) |
+| lanes | int nullable *(TASK-202)* | parsed from OSM `lanes` |
 | created_at, updated_at | timestamptz | |
+
+Unique on **`(osm_way_id, way_seq)`** together *(TASK-202, replaces the
+original TASK-201 single-column `osm_way_id` unique constraint — see
+[TASK202_DESIGN.md](TASK202_DESIGN.md) §1 for why the original constraint
+couldn't hold once way-splitting was implemented)*.
 
 ### `vehicles`
 | Column | Type | Notes |
@@ -314,7 +327,7 @@ Not exhaustive, but every one of these is load-bearing for a specific FR/NFR
 | Table | Index | Why |
 |---|---|---|
 | `intersections` | GIST on `location`; unique on `osm_node_id` | topology lookups; idempotent OSM ingestion |
-| `road_segments` | GIST on `geometry`; btree on `road_id`, `start_intersection_id`, `end_intersection_id`; unique on `osm_way_id` | routing traversal; idempotent OSM ingestion |
+| `road_segments` | GIST on `geometry`; btree on `road_id`, `start_intersection_id`, `end_intersection_id`; unique on `(osm_way_id, way_seq)` *(TASK-202)* | routing traversal; idempotent OSM ingestion |
 | `vehicle_assignments` | btree on `vehicle_id`, `route_id`, `service_calendar_id` | fleet-planning lookups |
 | `routes` | GIST on `geometry` | proximity/overlap queries (FR-ROUTE-01) |
 | `stops` | GIST on `location` | nearest-stop lookups, map-matching support |
@@ -339,6 +352,7 @@ Not exhaustive, but every one of these is load-bearing for a specific FR/NFR
   parent delete in practice (vehicles/trips are not expected to be hard-deleted).
 
 ---
-*v1.1 — Phase 0 baseline, Phase 2 (TASK-201) additions applied in place.
-See [PHASE2_DESIGN.md](PHASE2_DESIGN.md) for the reasoning behind every
-Phase 2 change.*
+*v1.2 — Phase 0 baseline, Phase 2 (TASK-201) additions, and TASK-202's
+`road_segments`/`roads` schema correction + feature columns applied in
+place. See [PHASE2_DESIGN.md](PHASE2_DESIGN.md) and
+[TASK202_DESIGN.md](TASK202_DESIGN.md) for the reasoning.*

@@ -24,8 +24,8 @@ specific FR/NFR ids they satisfy.
 ## Phase 2 — Transportation foundation
 
 - **Entry:** Phase 1 exit.
-- **Build, staged as two tasks** (split during implementation — see
-  [PHASE2_DESIGN.md](PHASE2_DESIGN.md)):
+- **Build, staged as three tasks** (split during implementation — see
+  [PHASE2_DESIGN.md](PHASE2_DESIGN.md) / [TASK202_DESIGN.md](TASK202_DESIGN.md)):
   - **TASK-201 (done):** the persisted domain/spatial foundation —
     `intersections`/`roads`/`road_segments` (the physical road network;
     **PostGIS is the system of record here, not the osmnx graph** — a
@@ -36,12 +36,19 @@ specific FR/NFR ids they satisfy.
     `/api/v1/{roads,stops,routes,vehicles}` endpoints. No OSM ingestion,
     no in-memory graph construction, no routing algorithm yet — deliberately
     out of scope for TASK-201.
-  - **TASK-202 (not started):** OSM ingestion (FR-INGEST-04) populating
-    the TASK-201 schema for a real or representative demo service area,
-    in-memory NetworkX/OSMnx graph construction *derived from* that
-    schema, and basic A*/Dijkstra routing over the graph.
+  - **TASK-202 (done):** a deterministic, idempotent OSM XML ingestion
+    pipeline (FR-INGEST-04, for a bounded/representative extract) that
+    populates TASK-201's schema — parse/validate/normalize/derive-topology/
+    persist, with a CLI entry point, dry-run mode, and full test coverage
+    against a real PostGIS database. Required one corrective migration
+    (`0003`) to `road_segments`'/`roads`' uniqueness constraints — see
+    TASK202_DESIGN.md §1. No in-memory graph construction, no routing
+    algorithm — deliberately out of scope for TASK-202.
+  - **TASK-203 (not started):** in-memory NetworkX/OSMnx graph construction
+    *derived from* the now-populated canonical schema, and basic
+    A*/Dijkstra routing over that graph.
 - **Exit:** given two points on the network, the routing service returns a
-  valid path (TASK-202); static route/stop data for the demo network is
+  valid path (TASK-203); static route/stop data for the demo network is
   queryable via `/routes`, `/routes/{id}/stops` (TASK-201, done).
 
 ## Phase 3 — Real-time engine

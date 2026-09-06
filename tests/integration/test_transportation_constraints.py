@@ -171,19 +171,45 @@ async def test_road_segment_requires_valid_intersections(db_session: AsyncSessio
         await db_session.flush()
 
 
-async def test_road_segment_osm_way_id_unique_when_present(db_session: AsyncSession) -> None:
+async def test_road_segment_osm_way_id_and_way_seq_unique_together(
+    db_session: AsyncSession,
+) -> None:
+    """Migration 0003 (TASK-202 §1 reconciliation): the idempotency key is
+    the *pair* (osm_way_id, way_seq), not osm_way_id alone - a single OSM
+    way legitimately produces multiple segments when split at a shared
+    node, so (way_id=555, way_seq=0) and (way_id=555, way_seq=1) must
+    coexist, while two rows both claiming (555, 0) must not."""
     i1 = make_intersection(0.0, 0.0)
     i2 = make_intersection(0.001, 0.001)
     i3 = make_intersection(0.002, 0.002)
     await flush(db_session, i1, i2, i3)
 
-    seg1 = make_road_segment(i1, i2, Point(0, 0), Point(0.001, 0.001), osm_way_id=555)
+    seg1 = make_road_segment(i1, i2, Point(0, 0), Point(0.001, 0.001), osm_way_id=555, way_seq=0)
     await flush(db_session, seg1)
 
-    seg2 = make_road_segment(i2, i3, Point(0.001, 0.001), Point(0.002, 0.002), osm_way_id=555)
+    seg2 = make_road_segment(
+        i2, i3, Point(0.001, 0.001), Point(0.002, 0.002), osm_way_id=555, way_seq=0
+    )
     db_session.add(seg2)
     with pytest.raises(IntegrityError):
         await db_session.flush()
+
+
+async def test_road_segment_same_way_id_different_way_seq_does_not_conflict(
+    db_session: AsyncSession,
+) -> None:
+    i1 = make_intersection(10.0, 10.0)
+    i2 = make_intersection(10.001, 10.001)
+    i3 = make_intersection(10.002, 10.002)
+    await flush(db_session, i1, i2, i3)
+
+    seg1 = make_road_segment(
+        i1, i2, Point(10, 10), Point(10.001, 10.001), osm_way_id=777, way_seq=0
+    )
+    seg2 = make_road_segment(
+        i2, i3, Point(10.001, 10.001), Point(10.002, 10.002), osm_way_id=777, way_seq=1
+    )
+    await flush(db_session, seg1, seg2)  # must not raise
 
 
 async def test_vehicle_assignment_rejects_invalid_date_range(db_session: AsyncSession) -> None:

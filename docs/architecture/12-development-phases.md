@@ -44,12 +44,22 @@ specific FR/NFR ids they satisfy.
     (`0003`) to `road_segments`'/`roads`' uniqueness constraints — see
     TASK202_DESIGN.md §1. No in-memory graph construction, no routing
     algorithm — deliberately out of scope for TASK-202.
-  - **TASK-203 (not started):** in-memory NetworkX/OSMnx graph construction
-    *derived from* the now-populated canonical schema, and basic
-    A*/Dijkstra routing over that graph.
+  - **TASK-203 (done):** the canonical directed computational road graph
+    (`nx.MultiDiGraph`) *derived from* the now-populated canonical schema —
+    `Intersection` -> node, `RoadSegment` -> one or two directed edges
+    depending on `is_oneway`, keyed by `RoadSegment.id` for traceability
+    back to PostGIS. NetworkX only (OSMnx's OSM-parsing value-add is
+    redundant — TASK-202 already normalized OSM into AURA's own schema; see
+    TASK203_DESIGN.md §10). Built on demand via a CLI
+    (`python -m app.graph.cli build|validate`), never cached or persisted.
+    No routing algorithm yet — deliberately out of scope for TASK-203 (this
+    section's original "and basic A*/Dijkstra routing over that graph"
+    phrasing is corrected here; routing is a future task consuming this
+    graph).
 - **Exit:** given two points on the network, the routing service returns a
-  valid path (TASK-203); static route/stop data for the demo network is
-  queryable via `/routes`, `/routes/{id}/stops` (TASK-201, done).
+  valid path (a future task, building on TASK-203's graph); static
+  route/stop data for the demo network is queryable via `/routes`,
+  `/routes/{id}/stops` (TASK-201, done).
 
 ## Phase 3 — Real-time engine
 

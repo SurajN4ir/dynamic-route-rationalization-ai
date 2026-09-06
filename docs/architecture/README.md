@@ -43,6 +43,12 @@ changes the code, and bump the version note at the bottom of the affected file.
   had specified but TASK-201's committed migration hadn't actually
   implemented (way-splitting needs a composite, not single-column, unique
   key on `road_segments`).
+- [TASK203_DESIGN.md](TASK203_DESIGN.md) — TASK-203 (canonical road graph
+  construction) design record: `Intersection`/`RoadSegment` → NetworkX
+  `MultiDiGraph` node/edge mapping, the multi-edge and self-loop decisions,
+  the reference-only geometry strategy, why NetworkX was chosen over
+  OSMnx, and a doc 12 correction (TASK-203 is graph construction only —
+  routing algorithms were split out to a future task, not built here).
 
 ## Change control
 

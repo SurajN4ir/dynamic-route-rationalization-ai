@@ -19,6 +19,11 @@ aura/
 │   └── recommendation/      # Ranking, explanation, controller decision + audit log
 │
 ├── ml/
+│   ├── common/              # TASK-205: shared feature contract, static/temporal/
+│   │                        # telemetry-derived feature computation, target
+│   │                        # definitions, dataset generation - not one model's
+│   │                        # code, imported by every ml/<model>/features.py below
+│   │                        # (doc 07 §7.7's "avoid duplicated feature logic")
 │   ├── traffic/             # features.py, train.py, models/, evaluation notebooks
 │   ├── eta/
 │   ├── delay/
@@ -79,4 +84,6 @@ aura/
   demo network, raw datasets) go through DVC, not raw git.
 
 ---
-*v1.0 — Phase 0.*
+*v1.1 — Phase 0 baseline, `ml/common/` (TASK-205's shared feature
+foundation) added in place. See [TASK205_DESIGN.md](TASK205_DESIGN.md)
+for the reasoning.*

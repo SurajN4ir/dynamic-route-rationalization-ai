@@ -91,6 +91,22 @@ specific FR/NFR ids they satisfy.
   dataset exists for whatever city is chosen; a real public GTFS/GTFS-RT
   archive is used opportunistically if one is actually obtainable for free,
   but the plan must not depend on it existing.
+- **Build, staged as tasks** (front-loaded before Phase 3's full exit,
+  same pattern TASK-204 used for Phase 3 — see
+  [TASK205_DESIGN.md](TASK205_DESIGN.md)):
+  - **TASK-205 (done):** the data/feature foundation underneath all five
+    future models — `ml/common/` (a new, explicitly-flagged shared
+    package, not one of this doc's `ml/<model>/` directories): the
+    feature contract, static/temporal/telemetry-derived feature
+    computation for the `road_segment x timestamp` grain (traffic
+    family, the only one with complete source data today), leakage-safe
+    windowed aggregation, chronological train/val/test splitting, and a
+    deterministic CSV-dataset generation CLI. ETA/Delay/Demand/Bunching
+    targets are defined but their generation is explicitly deferred —
+    each blocked on a specific, named missing dependency (no `trips`
+    table, no Route↔RoadSegment path mapping, no passenger-count
+    observations). No model is trained here — that remains this phase's
+    per-model (`ml/<model>/`) work, unchanged.
 - **Build:** all five models (doc 07) at least at their first baseline tier
   (historical average / naive), served via `services/prediction`.
 - **Exit:** `/predictions/*` endpoints return real (not mocked) predictions

@@ -56,6 +56,14 @@ changes the code, and bump the version note at the bottom of the affected file.
   state split, and doc 04/06 corrections (the `telemetry` table's actual
   shape vs. its Phase-0 draft, and why `route_id`/`trip_id`/`occupancy`
   were dropped from the wire contract).
+- [TASK205_DESIGN.md](TASK205_DESIGN.md) — TASK-205 (prediction data &
+  feature foundation) design record: the feature contract, the
+  `road_segment x timestamp` traffic grain's static/temporal/telemetry-
+  derived features, the strict leakage boundary (`ts < T`), why
+  ETA/Delay/Demand/Bunching targets are defined but their generation is
+  deferred (each cites its specific missing data dependency), and the
+  `ml/common/` placement decision (no dedicated feature-store product,
+  no new Postgres table — CSV + manifest under `data/features/`).
 
 ## Change control
 

@@ -31,6 +31,11 @@ changes the code, and bump the version note at the bottom of the affected file.
   (APPROVED WITH FIXES APPLIED): a real cross-event-loop connection pool
   bug in the test suite and a Docker build-arg misconfiguration for the
   frontend, both fixed and re-verified.
+- [PHASE2_DESIGN.md](PHASE2_DESIGN.md) — Phase 2 / TASK-201 design record:
+  the transportation domain + spatial schema decisions (Road/RoadSegment/
+  Intersection as a persisted PostGIS system of record, VehicleAssignment
+  vs. `trips`, SRID/idempotency conventions) and every additive change
+  applied to doc 04/12 as a result.
 
 ## Change control
 

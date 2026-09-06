@@ -31,8 +31,37 @@ under `/api/v1`. JWT bearer auth on every endpoint except `/auth/login` and
 | GET | `/fleet` | `VehicleState[]` | current position, speed, delay, status, anomaly flags |
 | GET | `/fleet/{vehicle_id}` | `VehicleState` | |
 | GET | `/routes` | `Route[]` | |
+| GET | `/routes/{route_id}` | `Route` | |
 | GET | `/routes/{route_id}/stops` | `Stop[]` | ordered |
 | GET | `/trips/{trip_id}` | `Trip` incl. current ETA per remaining stop | |
+
+## 5.3a Transportation network (static reference data)
+
+Phase 2 (TASK-201) foundation — roads, stops, routes, and the vehicle
+registry as persisted, PostGIS-backed reference data. Distinct from
+§5.3's `/fleet`/`/trips` above (real-time state, Phase 3): these answer
+"what exists," not "where is it right now." Numbered `5.3a` rather than
+renumbering subsequent sections, following the same convention as doc 06
+§6.1a/§6.1b — §5.4 onward keep their existing numbers, since doc 04, doc
+09, and ARCHITECTURE_REVIEW.md already cite them by number (§5.6, §5.9).
+See [PHASE2_DESIGN.md](PHASE2_DESIGN.md) for the schema decisions behind
+this surface.
+
+| Method | Path | Response | Notes |
+|---|---|---|---|
+| GET | `/roads` | `Road[]` | |
+| GET | `/roads/{road_id}` | `Road` incl. its `RoadSegment[]` | |
+| GET | `/road-segments/{segment_id}` | `RoadSegment` | |
+| GET | `/stops` | `Stop[]` | paginated (`limit`, `offset`) |
+| GET | `/stops/nearby?lat=&lon=&radius_m=` | `Stop[]` | proximity query (PostGIS `ST_DWithin`/`ST_Distance`), nearest first |
+| GET | `/stops/{stop_id}` | `Stop` | |
+| GET | `/vehicles` | `Vehicle[]` | paginated (`limit`, `offset`); static registry — not §5.3's `/fleet` (real-time state) |
+| GET | `/vehicles/{vehicle_id}` | `Vehicle` | |
+
+`Road`/`RoadSegment`/`Stop` geometry fields are GeoJSON (`Point` or
+`LineString`, SRID 4326 — see doc 04 §4.2). No write endpoints exist for
+any of these yet — the tables are populated via ingestion (a later task),
+not through this API.
 
 ## 5.4 Predictions
 
@@ -96,4 +125,6 @@ in `services/api`).
   is returned, so clients/evaluation scripts can pin to a specific model run.
 
 ---
-*v1.0 — Phase 0.*
+*v1.1 — Phase 0 baseline, §5.3a (Phase 2 / TASK-201 transportation network
+endpoints) and the `/routes/{route_id}` row added in place. See
+[PHASE2_DESIGN.md](PHASE2_DESIGN.md) for the reasoning.*

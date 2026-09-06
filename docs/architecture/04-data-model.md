@@ -23,9 +23,32 @@ erDiagram
     MODEL_VERSIONS ||--o{ PREDICTIONS : produced_by
     MODEL_VERSIONS ||--o{ RECOMMENDATIONS : produced_by
     USERS ||--o{ AUDIT_LOGS : acts_in
+    ROADS ||--o{ ROAD_SEGMENTS : aggregates
+    INTERSECTIONS ||--o{ ROAD_SEGMENTS : starts
+    INTERSECTIONS ||--o{ ROAD_SEGMENTS : ends
+    VEHICLES ||--o{ VEHICLE_ASSIGNMENTS : assigned_via
+    ROUTES ||--o{ VEHICLE_ASSIGNMENTS : served_by
+    SERVICE_CALENDARS ||--o{ VEHICLE_ASSIGNMENTS : scopes
 ```
 
+Phase 2 (TASK-201) added `intersections`/`roads`/`road_segments` (the
+physical road network — PostGIS is the system of record, not an in-memory
+graph — see [PHASE2_DESIGN.md](PHASE2_DESIGN.md)) and
+`service_calendars`/`vehicle_assignments` (static fleet planning,
+independent of `trips`).
+
 ## 4.2 Tables
+
+**Phase 2 addition (see [PHASE2_DESIGN.md](PHASE2_DESIGN.md)):** the road
+network (`intersections`, `roads`, `road_segments`) is now a first-class,
+persisted part of this schema — PostGIS is the system of record for road
+topology; an in-memory NetworkX/OSMnx graph used by routing work is a
+*derived* view rebuilt from these tables, never the source of truth. This
+was unspecified (not contradicted) by the original v1.0 schema below;
+`stops`/`routes`/`vehicles`/`route_stops` below are also extended with
+`name`/`source`/`source_id`/audit-timestamp columns per that document —
+the column lists below are updated in place to reflect what actually
+shipped, with the original v1.0 intent preserved.
 
 ### `users`
 | Column | Type | Notes |
@@ -36,30 +59,97 @@ erDiagram
 | password_hash | text | |
 | created_at | timestamptz | |
 
+### `intersections` *(Phase 2)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| location | geometry(Point,4326) | |
+| source | text | `osm` \| `manual` |
+| osm_node_id | bigint, unique when present | idempotency key for OSM ingestion |
+| created_at, updated_at | timestamptz | |
+
+### `roads` *(Phase 2)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| name | text nullable | human-meaningful name, e.g. "MG Road"; a Road aggregates 1+ RoadSegments |
+| road_class | text nullable | |
+| source | text | `osm` \| `manual` |
+| created_at, updated_at | timestamptz | |
+
+### `road_segments` *(Phase 2)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| road_id | uuid FK → roads, nullable | a segment need not belong to a named Road |
+| start_intersection_id | uuid FK → intersections | |
+| end_intersection_id | uuid FK → intersections | |
+| geometry | geometry(LineString,4326) | the routable unit — one edge between two intersections |
+| length_m | double precision nullable | cached; computable via `ST_Length(geography(geometry))` |
+| is_oneway | boolean | |
+| road_class | text nullable | |
+| source | text | `osm` \| `manual` |
+| osm_way_id | bigint, unique when present | idempotency key for OSM ingestion |
+| created_at, updated_at | timestamptz | |
+
 ### `vehicles`
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid PK | |
 | external_code | text unique | e.g. "BUS_07" |
 | capacity | int | |
-| source | text | `real` \| `simulated` |
-| status | text | `active`, `spare`, `maintenance` |
+| source | text | `real` \| `simulated` (CHECK constraint, Phase 2) |
+| status | text | `active`, `spare`, `maintenance` (CHECK constraint, Phase 2) |
+| created_at, updated_at | timestamptz | *(Phase 2)* |
+
+### `vehicle_assignments` *(Phase 2 — static fleet planning, not a trip)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| vehicle_id | uuid FK → vehicles | |
+| route_id | uuid FK → routes | |
+| service_calendar_id | uuid FK → service_calendars | |
+| valid_from | date | |
+| valid_to | date nullable | open-ended if null |
+| status | text | `active` \| `ended` |
+| created_at, updated_at | timestamptz | |
+
+Independent of `trips` below (see [PHASE2_DESIGN.md](PHASE2_DESIGN.md)
+§2.3) — this is "which vehicle serves which route, for which calendar
+period" at the fleet-planning level, not a specific journey instance.
+
+### `service_calendars` *(Phase 2 — GTFS calendar.txt-equivalent)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| code | text unique | e.g. "WEEKDAY" |
+| monday..sunday | boolean × 7 | |
+| start_date, end_date | date | |
+| created_at, updated_at | timestamptz | |
 
 ### `routes`
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid PK | |
 | code | text unique | e.g. "Route 12" |
-| geometry | geometry(LineString,4326) | |
+| name | text nullable | *(Phase 2)* |
+| geometry | geometry(LineString,4326) nullable | *(Phase 2: relaxed to nullable — a route may exist before its path is computed)* |
 | direction | text | |
+| source | text | `osm` \| `gtfs` \| `manual` *(Phase 2)* |
+| source_id | text nullable | idempotency key when source ≠ manual *(Phase 2)* |
+| created_at, updated_at | timestamptz | *(Phase 2)* |
 
 ### `stops`
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid PK | |
 | code | text unique | |
+| name | text nullable | *(Phase 2)* |
 | location | geometry(Point,4326) | |
 | capacity_hint | int | for crowding threshold |
+| source | text | `osm` \| `gtfs` \| `manual` *(Phase 2)* |
+| source_id | text nullable | idempotency key when source ≠ manual *(Phase 2)* |
+| created_at, updated_at | timestamptz | *(Phase 2)* |
 
 ### `route_stops`
 | Column | Type | Notes |
@@ -68,6 +158,7 @@ erDiagram
 | stop_id | uuid FK → stops | not unique — a loop route may revisit a stop at a different sequence position |
 | sequence | int | order along route |
 | scheduled_offset_s | int | seconds from trip start |
+| created_at, updated_at | timestamptz | *(Phase 2)* |
 
 PK: **(route_id, sequence)** — not `(route_id, stop_id, sequence)`. Sequence
 alone determines position along a route; including `stop_id` in the key
@@ -222,6 +313,9 @@ Not exhaustive, but every one of these is load-bearing for a specific FR/NFR
 
 | Table | Index | Why |
 |---|---|---|
+| `intersections` | GIST on `location`; unique on `osm_node_id` | topology lookups; idempotent OSM ingestion |
+| `road_segments` | GIST on `geometry`; btree on `road_id`, `start_intersection_id`, `end_intersection_id`; unique on `osm_way_id` | routing traversal; idempotent OSM ingestion |
+| `vehicle_assignments` | btree on `vehicle_id`, `route_id`, `service_calendar_id` | fleet-planning lookups |
 | `routes` | GIST on `geometry` | proximity/overlap queries (FR-ROUTE-01) |
 | `stops` | GIST on `location` | nearest-stop lookups, map-matching support |
 | `incidents` | GIST on `location`; btree on `(starts_at, ends_at)` | "active incidents" queries (FR-INGEST-05), incident-impact detection (FR-EVENT-02) |
@@ -245,4 +339,6 @@ Not exhaustive, but every one of these is load-bearing for a specific FR/NFR
   parent delete in practice (vehicles/trips are not expected to be hard-deleted).
 
 ---
-*v1.0 — Phase 0.*
+*v1.1 — Phase 0 baseline, Phase 2 (TASK-201) additions applied in place.
+See [PHASE2_DESIGN.md](PHASE2_DESIGN.md) for the reasoning behind every
+Phase 2 change.*

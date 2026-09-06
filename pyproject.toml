@@ -12,6 +12,8 @@ dependencies = [
     "asyncpg>=0.30,<0.31",
     "alembic>=1.14,<1.15",
     "redis>=5.2,<6",
+    "geoalchemy2>=0.16,<0.17",
+    "shapely>=2.0,<3",
 ]
 
 [project.optional-dependencies]
@@ -51,3 +53,9 @@ python_version = "3.11"
 ignore_missing_imports = true
 mypy_path = "services/api"
 exclude = ["\\.venv", "apps/web"]
+# tests/conftest.py and tests/integration/conftest.py both being named
+# "conftest" with no __init__.py anywhere under tests/ (deliberate - see
+# docs/architecture/10-repository-structure.md test conventions) makes
+# mypy treat them as colliding top-level modules unless it resolves
+# packages by explicit base dir + file path instead of module name alone.
+explicit_package_bases = true

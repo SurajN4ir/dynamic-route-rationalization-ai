@@ -24,12 +24,25 @@ specific FR/NFR ids they satisfy.
 ## Phase 2 — Transportation foundation
 
 - **Entry:** Phase 1 exit.
-- **Build:** OSM ingestion (FR-INGEST-04), road graph via osmnx, `routes`/
-  `stops`/`route_stops`/`vehicles` tables populated for one real or
-  representative demo service area, basic A*/Dijkstra routing over the graph.
+- **Build, staged as two tasks** (split during implementation — see
+  [PHASE2_DESIGN.md](PHASE2_DESIGN.md)):
+  - **TASK-201 (done):** the persisted domain/spatial foundation —
+    `intersections`/`roads`/`road_segments` (the physical road network;
+    **PostGIS is the system of record here, not the osmnx graph** — a
+    clarification of this section's original "road graph via osmnx"
+    phrasing, decided during TASK-201), plus `stops`/`routes`/
+    `route_stops`/`vehicles` (extended with source-tracking columns) and
+    two new tables, `service_calendars`/`vehicle_assignments`. Read-only
+    `/api/v1/{roads,stops,routes,vehicles}` endpoints. No OSM ingestion,
+    no in-memory graph construction, no routing algorithm yet — deliberately
+    out of scope for TASK-201.
+  - **TASK-202 (not started):** OSM ingestion (FR-INGEST-04) populating
+    the TASK-201 schema for a real or representative demo service area,
+    in-memory NetworkX/OSMnx graph construction *derived from* that
+    schema, and basic A*/Dijkstra routing over the graph.
 - **Exit:** given two points on the network, the routing service returns a
-  valid path; static route/stop data for the demo network is queryable via
-  `/routes`, `/routes/{id}/stops`.
+  valid path (TASK-202); static route/stop data for the demo network is
+  queryable via `/routes`, `/routes/{id}/stops` (TASK-201, done).
 
 ## Phase 3 — Real-time engine
 
